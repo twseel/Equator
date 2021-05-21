@@ -1,0 +1,210 @@
+from itertools import permutations, product, combinations_with_replacement
+ 
+def equator(*nums, expomax=0, minimal=True, brackcheck=True, expostop=True):
+    symbols = ['+', '-', '*', '/']#, '**']
+    if expomax > 0:
+        symbols.append('**')
+    sym_sets = list(product(symbols, repeat=len(nums) - 2)) # get all possible mixes of symbols
+    winners = []
+    if minimal: # UNDER CONSTRUCTION: remove redundant shufflings of correct equations
+        sim_dists = [[s.count('+') + s.count('-'), s.count('*') + s.count('/'), s.count('**')] for s in sym_sets]
+        skippers = []
+
+    for i in reversed(range(1, len(nums))): # assign equal-sign positions from right to left
+        if brackcheck:
+            l_max_bracs = i - 1 # add brackets
+            if l_max_bracs < 0:
+                l_max_bracs = 0
+            left_opens = ['(' * b for b in range(l_max_bracs + 1)] # get all possible bracket mixes
+            left_closes = [')' * b for b in range(l_max_bracs + 1)]
+            l_opetions = [list(i) + [''] for i in product(left_opens, repeat=l_max_bracs)]
+            l_clotions = [[''] + list(i) for i in product(left_closes, repeat=l_max_bracs)]
+            left_bracks = []
+            
+            for o in l_opetions:
+                opelength = sum([len(b) for b in o])
+                if opelength > l_max_bracs: # preemptive redundancy filter
+                    continue
+                for c in l_clotions:
+                    bracs = []
+                    check = 0 # makes sure every close corresponds to an open
+                    stackmarks = [] # filters redundant stacked/double brackets
+                    if len(o[0]) > 0 and len(c[-1]) > 0:
+                        outer = True
+                        outercheck = -1 # stops side-enveloping brackets using check score
+                    else:
+                        outer = False
+                    
+                    for k in range(l_max_bracs + 1):
+                        if len(o[k]) > 0 and len(c[k]) > 0: # stops redundant brackets around single numbers
+                            check = 1
+                            break
+                        if outer and check == 0:
+                            outercheck += 1
+
+                        if len(o[k]) > 1:
+                            for mark in range(check + 2, check + len(o[k]) + 1):
+                                stackmarks.append(mark)
+                        bracs.append(o[k])
+                        check += len(o[k])
+
+                        if len(c[k]) > 1:
+                            for mark in range(check - len(c[k]) + 2, check + 1):
+                                if mark in stackmarks:
+                                    check = 1
+                                    break
+                        bracs.append(c[k])
+                        check -= len(c[k])
+
+                        stackmarks = [i for i in stackmarks if i <= check]
+                        if check < 0:
+                            break
+                    
+                    if check != 0: # makes sure all brackets are closed
+                        continue
+                    if outer:
+                        if outercheck < 1:
+                            continue
+                    left_bracks.append(bracs)    
+                
+            r_max_bracs = len(nums) - i - 1 # set up brackets for the right half
+            if r_max_bracs < 0:
+                r_max_bracs = 0
+            right_opens = ['(' * b for b in range(r_max_bracs + 1)] # get all possible bracket mixes
+            right_closes = [')' * b for b in range(r_max_bracs + 1)]
+            r_opetions = [list(i) + [''] for i in product(right_opens, repeat=r_max_bracs)]
+            r_clotions = [[''] + list(i) for i in product(right_closes, repeat=r_max_bracs)]
+            right_bracks = []
+            
+            for o in r_opetions:
+                opelength = sum([len(b) for b in o])
+                if opelength > r_max_bracs: # preemptive redundancy filter
+                    continue
+                for c in r_clotions:
+                    bracs = []
+                    check = 0 # makes sure every close corresponds to an open
+                    stackmarks = [] # filters redundant stacked/double brackets
+                    if len(o[0]) > 0 and len(c[-1]) > 0:
+                        outer = True
+                        outercheck = -1 # stops side-enveloping brackets using check score
+                    else:
+                        outer = False
+                    
+                    for k in range(r_max_bracs):
+                        if len(o[k]) > 0 and len(c[k]) > 0: # stops redundant brackets around single numbers
+                            check = 1
+                            break
+                        if outer and check == 0:
+                            outercheck += 1
+
+                        if len(o[k]) > 1:
+                            for mark in range(check + 2, check + len(o[k]) + 1):
+                                stackmarks.append(mark)
+                        bracs.append(o[k])
+                        check += len(o[k])
+
+                        if len(c[k]) > 1:
+                            for mark in range(check - len(c[k]) + 2, check + 1):
+                                if mark in stackmarks:
+                                    check = 1
+                                    break
+                        bracs.append(c[k])
+                        check -= len(c[k])
+
+                        stackmarks = [i for i in stackmarks if i <= check]
+                        if check < 0:
+                            break
+                    if check != 0: # makes sure all brackets are closed
+                        continue
+                    if outer:
+                        if outercheck < 1:
+                            continue
+                    right_bracks.append(bracs)
+        
+        #print(left_bracks) ###
+        #print(right_bracks) ###
+        #print(str(i) + '/' + str(len(nums)) + 'equal sign positions') ###
+        for order in list(set(permutations(nums, len(nums)))):
+            order = list(order) # try ordering of numbers
+            equal = order[:]
+            equal[i:i] = ['==']
+            #print(order) ###
+
+            for sym_i, s in enumerate(sym_sets):
+                if s.count('**') > expomax: # check exponents threshold
+                    continue
+                if minimal:
+                    if sim_dists[sym_i] in skippers: # remove redundancy
+                        continue
+                        
+                equat = equal[:] # insert symbols
+                for j in range(1, len(equat))[::-1]:
+                    if j < int(i):
+                        equat[j:j] = [s[j - 1]]
+                    if j > i + 1:
+                        equat[j:j] = [s[j - 3]]
+                #print(str(sym_i) + '/' + str(len(sym_sets)), equat) ###
+                
+                if expomax > 1 and expostop:
+                    for e in range(len(equat) - 2): # save running time on double exponentials
+                        if equat[e] == '**':
+                            if equat[e + 1] > 5: # filter power higher than 5 (to be changed?)
+                                equat = 'False'
+                                break
+                            if len(equat) > e + 2:
+                                if equat[e + 2] == '**':
+                                    equat = 'False'
+                                    break
+
+                if equat == 'False':
+                    continue                
+                
+                equation = ''.join([str(k) for k in equat])
+                try:
+                    if eval(equation):
+                        winners.append(equation) # test equation
+                        if minimal:
+                            skippers.append(sim_dists[sym_i])
+                        continue # ignore brackets if equation is already correct
+                except:
+                    pass
+                
+                if brackcheck:
+                    done = False # stop bracketing when succesful mix is found
+                    for l in left_bracks: # try combinations
+                        if done:
+                            break
+                        for r in right_bracks:
+                            equab = equat[:]
+                            for n in range(len(r))[::-1]: # insert brackets from right to left
+                                equab[n + i * 2:n + i * 2] = r[n]
+                            for m in range(len(l))[::-1]:
+                                equab[m:m] = l[m]
+                            equation = ''.join([str(k) for k in equab])
+                            #print('braction: ' + equation) ###
+                            try:
+                                if eval(equation):
+                                    winners.append(equation)
+                                    done = True
+                                    if minimal:
+                                        skippers.append(sim_dists[sym_i])
+                                    break
+                            except:
+                                pass
+    
+    result = winners
+    #sides, result = [], []
+    #for win in winners[:]: # filter redundant results
+    #    if win not in result:
+    #        result.append(win)
+    #        continue
+    #        for side in win.split('=='):
+    #            if eval(side) in sides[:-1]:
+    #                if win in result:
+    #                    result.remove(win)
+    #            else:
+    #                sides.append(eval(side))
+    
+    if len(result) == 0:
+        return 'No results found'
+    return result
